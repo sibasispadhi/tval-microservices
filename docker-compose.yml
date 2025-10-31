@@ -1,0 +1,85 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    env_file: .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ledger:
+    build: ./services/ledger
+    environment:
+      - DATABASE_URL=postgresql://tval:tvalpass@postgres:5432/tvaldb
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8083:8000"
+
+  risk:
+    build: ./services/risk
+    ports:
+      - "8082:8000"
+
+  payments:
+    build: ./services/payments
+    environment:
+      - RISK_URL=http://risk:8000
+      - LEDGER_URL=http://ledger:8000
+      - P95_SLO_MS=200
+      - MAX_CONCURRENCY=8
+    depends_on:
+      - risk
+      - ledger
+    ports:
+      - "8081:8000"
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./telemetry/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  opa:
+    image: openpolicyagent/opa:latest
+    command: ["run", "--server", "--log-level=info", "/policies/policy.rego"]
+    volumes:
+      - ./agent/policy.rego:/policies/policy.rego:ro
+    ports:
+      - "8181:8181"
+
+  agent:
+    build: ./agent
+    environment:
+      - PROM_URL=http://prometheus:9090
+      - OPA_URL=http://opa:8181/v1/data/tval/allow
+      - PROPOSALS_DIR=/app/manifests
+      - LOGS_DIR=/app/logs
+      - TARGET_SERVICE=payments
+      - P95_SLO_MS=200
+    volumes:
+      - ./agent/manifests:/app/manifests
+      - ./agent/logs:/app/logs
+      - ./schemas:/app/schemas:ro
+      - ./agent/policy.rego:/app/policy.rego:ro
+    depends_on:
+      - prometheus
+      - opa
+      - payments
+
+  loadgen:
+    build: ./loadgen
+    depends_on:
+      - payments
+
+volumes:
+  pgdata:

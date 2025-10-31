@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TVAL Justification",
+  "type": "object",
+  "properties": {
+    "action_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "service": {
+      "type": "string"
+    },
+    "param": {
+      "type": "string"
+    },
+    "current": {
+      "type": "number"
+    },
+    "proposed": {
+      "type": "number"
+    },
+    "metrics": {
+      "type": "object"
+    },
+    "policy_result": {
+      "type": "boolean"
+    },
+    "human_required": {
+      "type": "boolean"
+    },
+    "explain": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "action_id",
+    "timestamp",
+    "service",
+    "param",
+    "current",
+    "proposed",
+    "policy_result"
+  ]
+}
